@@ -21,10 +21,10 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npx vite build
+      - run: npm run build
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: build
       - id: deployment
         uses: actions/deploy-pages@v4

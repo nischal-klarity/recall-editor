@@ -438,8 +438,6 @@ function collapseAll(editor) {
 
 function RecallTaskView({ node, getPos, editor }) {
   const { title, done, expanded } = node.attrs;
-  const viewMode = editor.storage.recallTask?.viewMode || "inline";
-  const isPanelMode = viewMode === "panel";
 
   const toggleDone = (e) => {
     e.stopPropagation();
@@ -460,29 +458,14 @@ function RecallTaskView({ node, getPos, editor }) {
     }
   };
 
-  const contentStyle = isPanelMode && expanded
-    ? {
-        position: "fixed", right: 0, top: 0, width: 380,
-        height: "100vh", background: "white",
-        borderLeft: "1px solid #e5e7eb", padding: "20px",
-        overflowY: "auto", zIndex: 10,
-      }
-    : {
-        display: expanded ? "block" : "none",
-        padding: "6px 10px 12px 37px",
-        borderTop: expanded ? "1px solid #f0f0f0" : "none",
-      };
-
   return (
     <NodeViewWrapper>
       <div
         style={{
           borderRadius: 8,
-          border: expanded && !isPanelMode ? "1px solid #d1d5db"
-            : expanded && isPanelMode ? "1px solid #7c3aed"
-            : "1px solid transparent",
+          border: expanded ? "1px solid #d1d5db" : "1px solid transparent",
           marginBottom: 2,
-          background: expanded && !isPanelMode ? "#f9fafb" : "transparent",
+          background: expanded ? "#f9fafb" : "transparent",
           transition: "all 0.15s ease",
         }}
       >
@@ -511,19 +494,13 @@ function RecallTaskView({ node, getPos, editor }) {
             textDecoration: done ? "line-through" : "none",
             color: "#1a1a1a", fontWeight: 500, fontSize: 14,
           }}>{title}</span>
-          {isPanelMode && expanded && (
-            <span style={{ fontSize: 10, color: "#7c3aed", fontWeight: 600 }}>
-              Editing in panel →
-            </span>
-          )}
         </div>
 
-        <div style={contentStyle}>
-          {isPanelMode && expanded && (
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a", marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid #f0f0f0" }}>
-              {title}
-            </div>
-          )}
+        <div style={{
+          display: expanded ? "block" : "none",
+          padding: "6px 10px 12px 37px",
+          borderTop: expanded ? "1px solid #f0f0f0" : "none",
+        }}>
           <NodeViewContent className="recall-task-content" />
         </div>
       </div>
@@ -946,7 +923,6 @@ function simulateCoachSuggestions(editor) {
 // ─── Main Component ─────────────────────────────────────────────
 
 export default function RecallEditor() {
-  const [viewMode, setViewMode] = useState("inline");
   const [activeSuggestion, setActiveSuggestion] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -1026,17 +1002,9 @@ export default function RecallEditor() {
       editor.storage.recallTask = {
         onSuggestionClick: (s) => setActiveSuggestion(s),
         onHistoryChange: (log) => setChangeLog([...log]),
-        viewMode: "inline",
       };
     },
   });
-
-  useEffect(() => {
-    if (editor && editor.storage.recallTask) {
-      editor.storage.recallTask.viewMode = viewMode;
-      editor.view.dispatch(editor.state.tr);
-    }
-  }, [viewMode, editor]);
 
   // Count suggestions
   let suggestionCount = 0;
@@ -1068,46 +1036,44 @@ export default function RecallEditor() {
       <div style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
         {/* Toolbar */}
         <div style={{
-          display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
+          display: "flex", alignItems: "center", gap: 6, marginBottom: 16,
           paddingBottom: 12, borderBottom: "1px solid #f3f4f6", flexWrap: "wrap",
         }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af" }}>VIEW:</span>
-          {["inline", "panel"].map((mode) => (
-            <button key={mode} onClick={() => setViewMode(mode)} style={{
-              padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 4, cursor: "pointer",
-              border: viewMode === mode ? "1.5px solid #7c3aed" : "1px solid #e5e7eb",
-              background: viewMode === mode ? "#f5f3ff" : "white",
-              color: viewMode === mode ? "#7c3aed" : "#6b7280",
-            }}>
-              {mode === "inline" ? "↕ Inline" : "→ Panel"}
-            </button>
-          ))}
-
-          <div style={{ width: 1, height: 16, background: "#e5e7eb", margin: "0 4px" }} />
-
-          {/* Expand / Collapse All */}
+          {/* Expand All */}
           <button onClick={() => editor && expandAll(editor)} style={{
-            padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 4, cursor: "pointer",
-            border: "1px solid #e5e7eb", background: "white", color: "#6b7280",
-          }}>
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "5px 12px", fontSize: 12, fontWeight: 500, borderRadius: 6, cursor: "pointer",
+            border: "1px solid #e5e7eb", background: "white", color: "#374151",
+            transition: "all 0.15s ease",
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#f9fafb"; e.currentTarget.style.borderColor = "#d1d5db"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "white"; e.currentTarget.style.borderColor = "#e5e7eb"; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="7 13 12 18 17 13" /><polyline points="7 6 12 11 17 6" />
+            </svg>
             Expand All
           </button>
+
+          {/* Collapse All */}
           <button onClick={() => editor && collapseAll(editor)} style={{
-            padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 4, cursor: "pointer",
-            border: "1px solid #e5e7eb", background: "white", color: "#6b7280",
-          }}>
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "5px 12px", fontSize: 12, fontWeight: 500, borderRadius: 6, cursor: "pointer",
+            border: "1px solid #e5e7eb", background: "white", color: "#374151",
+            transition: "all 0.15s ease",
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#f9fafb"; e.currentTarget.style.borderColor = "#d1d5db"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "white"; e.currentTarget.style.borderColor = "#e5e7eb"; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 11 12 6 7 11" /><polyline points="17 18 12 13 7 18" />
+            </svg>
             Collapse All
           </button>
 
-          <div style={{ width: 1, height: 16, background: "#e5e7eb", margin: "0 4px" }} />
+          <div style={{ width: 1, height: 20, background: "#e5e7eb", margin: "0 4px" }} />
 
-          <button onClick={() => editor && simulateCoachSuggestions(editor)} style={{
-            padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 4, cursor: "pointer",
-            border: "1px solid #e5e7eb", background: "#fffbeb", color: "#92400e",
-          }}>
-            Simulate Coach
-          </button>
-
+          {/* Suggestions review */}
           {suggestionCount > 0 && (
             <button
               onClick={() => {
@@ -1116,26 +1082,58 @@ export default function RecallEditor() {
                 expandTasksWithSuggestions(editor);
               }}
               style={{
-                padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 4, cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 5,
+                padding: "5px 12px", fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: "pointer",
                 border: reviewOpen ? "1.5px solid #92400e" : "1px solid #fde68a",
                 background: reviewOpen ? "#fef3c7" : "#fffbeb",
                 color: "#92400e",
+                transition: "all 0.15s ease",
               }}
             >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" /><line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
               {suggestionCount} pending — Review
             </button>
           )}
 
-          <div style={{ width: 1, height: 16, background: "#e5e7eb", margin: "0 4px" }} />
-
           {/* History toggle */}
           <button onClick={() => { setHistoryOpen(!historyOpen); if (!historyOpen) setReviewOpen(false); }} style={{
-            padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 4, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "5px 12px", fontSize: 12, fontWeight: 500, borderRadius: 6, cursor: "pointer",
             border: historyOpen ? "1.5px solid #7c3aed" : "1px solid #e5e7eb",
             background: historyOpen ? "#f5f3ff" : "white",
-            color: historyOpen ? "#7c3aed" : "#6b7280",
-          }}>
-            History {changeLog.length > 0 ? `(${changeLog.length})` : ""}
+            color: historyOpen ? "#7c3aed" : "#374151",
+            transition: "all 0.15s ease",
+          }}
+            onMouseEnter={(e) => { if (!historyOpen) { e.currentTarget.style.background = "#f9fafb"; e.currentTarget.style.borderColor = "#d1d5db"; } }}
+            onMouseLeave={(e) => { if (!historyOpen) { e.currentTarget.style.background = "white"; e.currentTarget.style.borderColor = "#e5e7eb"; } }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+            </svg>
+            History{changeLog.length > 0 ? ` (${changeLog.length})` : ""}
+          </button>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Simulate Coach — special demo treatment */}
+          <button onClick={() => editor && simulateCoachSuggestions(editor)} style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "5px 12px", fontSize: 11, fontWeight: 500, borderRadius: 6, cursor: "pointer",
+            border: "1.5px dashed #d6b4fc", background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
+            color: "#7c3aed", letterSpacing: "0.01em",
+            transition: "all 0.15s ease",
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#a78bfa"; e.currentTarget.style.background = "linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#d6b4fc"; e.currentTarget.style.background = "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)"; }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            Simulate Coach
+            <span style={{ fontSize: 9, opacity: 0.6, fontWeight: 400 }}>(demo)</span>
           </button>
         </div>
 
