@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recall Drawer POC</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      .tiptap:focus { outline: none; }
+      .tiptap h3 {
+        font-size: 12px;
+        font-weight: 700;
+        color: #9ca3af;
+        letter-spacing: 0.05em;
+        margin: 20px 0 8px;
+      }
+      .tiptap p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #374151;
+      }
+      /* V2: sub-task checkboxes inside recall tasks */
+      .recall-task-content ul[data-type="taskList"] {
+        list-style: none;
+        padding: 0;
+        margin: 6px 0;
+      }
+      .recall-task-content ul[data-type="taskList"] li {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 2px 0;
+      }
+      .recall-task-content ul[data-type="taskList"] li label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .recall-task-content ul[data-type="taskList"] li label input[type="checkbox"] {
+        margin-top: 3px;
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+      }
+      .recall-task-content ul[data-type="taskList"] li[data-checked="true"] p {
+        text-decoration: line-through;
+        color: #9ca3af;
+      }
+      .recall-task-content ul[data-type="taskList"] li div {
+        flex: 1;
+      }
+      .recall-task-content p {
+        font-size: 13px;
+        line-height: 1.5;
+        color: #4b5563;
+      }
+      /* Placeholder for empty task content */
+      .recall-task-content > p.is-empty:first-child::before {
+        content: "Add notes, context, or sub-tasks…";
+        color: #c4b5fd;
+        font-style: italic;
+        pointer-events: none;
+        float: left;
+        height: 0;
+      }
+      .recall-task-content > .is-empty:only-child::before {
+        content: "Add notes, context, or sub-tasks…";
+        color: #c4b5fd;
+        font-style: italic;
+        pointer-events: none;
+        float: left;
+        height: 0;
+      }
+      /* Suggestion marks (redlines) */
+      .suggestion-insert {
+        background: #dcfce7;
+        border-bottom: 2px solid #16a34a;
+        text-decoration: none;
+        cursor: pointer;
+        padding: 1px 0;
+      }
+      .suggestion-delete {
+        background: #fee2e2;
+        text-decoration: line-through;
+        text-decoration-color: #dc2626;
+        color: #991b1b;
+        cursor: pointer;
+        padding: 1px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
