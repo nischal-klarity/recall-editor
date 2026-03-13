@@ -352,6 +352,75 @@ function AddTaskButton({ editor }) {
   );
 }
 
+// ─── Simulate AI ────────────────────────────────────────────────
+
+function simulateAI(editor) {
+  // Find the first detailsBlock and expand it
+  let firstTaskPos = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === "detailsBlock" && firstTaskPos === null) firstTaskPos = pos;
+  });
+  if (firstTaskPos === null) return;
+
+  const taskNode = editor.state.doc.nodeAt(firstTaskPos);
+  if (taskNode && !taskNode.attrs.open) {
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(firstTaskPos, null, { ...taskNode.attrs, open: true })
+    );
+  }
+
+  // Insert an italic paragraph (AI provenance) inside the first task
+  setTimeout(() => {
+    // Find the end of the first paragraph inside the first detailsBlock
+    let insertPos = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (insertPos !== null) return false;
+      // Find first paragraph inside a detailsBlock
+      const $pos = editor.state.doc.resolve(pos);
+      for (let d = $pos.depth; d > 0; d--) {
+        if ($pos.node(d).type.name === "detailsBlock") {
+          if (node.type.name === "paragraph" && node.content.size > 0) {
+            insertPos = pos + node.nodeSize;
+            return false;
+          }
+        }
+      }
+    });
+
+    if (insertPos !== null) {
+      const italicMark = editor.state.schema.marks.italic.create();
+      const aiText = editor.state.schema.text(
+        "Based on Q4 data, the 12% cap preserves margin while staying competitive. Recommend confirming with finance before the Friday SOW deadline.",
+        [italicMark]
+      );
+      const aiParagraph = editor.state.schema.nodes.paragraph.create(null, [aiText]);
+      editor.view.dispatch(editor.state.tr.insert(insertPos, aiParagraph));
+    }
+  }, 50);
+
+  // Add an AI-suggested subtask (italic) inside the first task list
+  setTimeout(() => {
+    let taskListEnd = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === "taskList" && taskListEnd === null) {
+        taskListEnd = pos + node.nodeSize;
+      }
+    });
+    if (taskListEnd !== null) {
+      const italicMark = editor.state.schema.marks.italic.create();
+      const subText = editor.state.schema.text(
+        "Review Alex's email re: competitor pricing",
+        [italicMark]
+      );
+      const newItem = editor.state.schema.nodes.taskItem.create(
+        { checked: false },
+        [editor.state.schema.nodes.paragraph.create(null, [subText])]
+      );
+      editor.view.dispatch(editor.state.tr.insert(taskListEnd - 1, newItem));
+    }
+  }, 100);
+}
+
 // ─── Expand/Collapse helpers ────────────────────────────────────
 
 function expandAll(editor) {
@@ -592,6 +661,42 @@ export default function RecallEditorV3() {
               <polyline points="13 2 13 9 20 9" />
             </svg>
             Markdown
+          </button>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Simulate AI — special demo treatment */}
+          <button
+            onClick={() => editor && simulateAI(editor)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "5px 12px",
+              fontSize: 11,
+              fontWeight: 500,
+              borderRadius: 6,
+              cursor: "pointer",
+              border: "1.5px dashed #d6b4fc",
+              background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
+              color: "#7c3aed",
+              letterSpacing: "0.01em",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "#a78bfa";
+              e.currentTarget.style.background = "linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "#d6b4fc";
+              e.currentTarget.style.background = "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)";
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            Simulate AI
+            <span style={{ fontSize: 9, opacity: 0.6, fontWeight: 400 }}>(demo)</span>
           </button>
         </div>
 
