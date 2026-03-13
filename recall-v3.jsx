@@ -6,12 +6,20 @@
  * Features:
  * - TaskList + TaskItem with nested subtasks (3+ levels)
  * - Custom DetailsBlock node (<details>/<summary>) for collapsible sections
+ *   with checkbox support for marking tasks done
  * - Round-trip Markdown fidelity via tiptap-markdown
  */
 
 import React, { useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
-import { Node, mergeAttributes } from "@tiptap/core";
+import {
+  useEditor,
+  EditorContent,
+  ReactNodeViewRenderer,
+  NodeViewWrapper,
+  NodeViewContent,
+} from "@tiptap/react";
+import { Node, mergeAttributes, Extension } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
@@ -89,81 +97,163 @@ IT wants to push to Q3 but sales ops needs the custom fields before the mid-mark
 I think we're overcomplicating the pricing tiers. The original 3-tier structure worked for 80% of deals.
 `;
 
-// ─── DetailsBlock Nodes ─────────────────────────────────────────
-// Three nodes form the collapsible structure:
-// detailsBlock > detailsSummary + detailsContent
-
-const DetailsSummary = Node.create({
-  name: "detailsSummary",
-  content: "inline*",
-  defining: true,
-  selectable: false,
-
-  parseHTML() {
-    return [{ tag: "summary" }];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return [
-      "summary",
-      mergeAttributes(HTMLAttributes, {
-        style: "font-weight:500;font-size:14px;cursor:pointer;color:#1a1a1a;outline:none;",
-      }),
-      0,
-    ];
-  },
-});
-
-const DetailsContent = Node.create({
-  name: "detailsContent",
-  content: "block+",
-  defining: true,
-
-  parseHTML() {
-    return [{ tag: "div[data-details-content]" }];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return [
-      "div",
-      mergeAttributes(HTMLAttributes, {
-        "data-details-content": "",
-        style: "padding:6px 0 8px 8px;",
-      }),
-      0,
-    ];
-  },
-});
+// ─── DetailsBlock Node ──────────────────────────────────────────
+// Single node: parses <details>, stores summary as attribute,
+// body content is block+ via NodeViewContent.
 
 const DetailsBlock = Node.create({
   name: "detailsBlock",
   group: "block",
-  content: "detailsSummary detailsContent",
+  content: "block+",
   defining: true,
 
   addAttributes() {
     return {
-      open: {
-        default: false,
-        parseHTML: (el) => el.hasAttribute("open"),
-        renderHTML: (attrs) => (attrs.open ? { open: "open" } : {}),
-      },
+      summary: { default: "Untitled" },
+      open: { default: false, rendered: false },
+      done: { default: false, rendered: false },
     };
   },
 
   parseHTML() {
-    return [{ tag: "details" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
     return [
-      "details",
-      mergeAttributes(HTMLAttributes, {
-        style:
-          "border-radius:8px;border:1px solid #e5e7eb;margin-bottom:4px;padding:4px 10px;transition:all 0.15s ease;",
-      }),
-      0,
+      {
+        tag: "details",
+        getAttrs(dom) {
+          const summaryEl = dom.querySelector("summary");
+          return {
+            summary: summaryEl ? summaryEl.textContent : "Untitled",
+            open: dom.hasAttribute("open"),
+          };
+        },
+        // Skip the <summary> element when parsing content — it's stored as an attribute
+        contentElement(node) {
+          // Create a wrapper div with everything except the summary
+          const wrapper = document.createElement("div");
+          Array.from(node.childNodes).forEach((child) => {
+            if (child.nodeName !== "SUMMARY") {
+              wrapper.appendChild(child.cloneNode(true));
+            }
+          });
+          return wrapper;
+        },
+      },
     ];
   },
+
+  renderHTML({ HTMLAttributes, node }) {
+    // For tiptap-markdown serialization, render as <details><summary>...</summary>content</details>
+    return [
+      "details",
+      mergeAttributes(HTMLAttributes, node.attrs.open ? { open: "open" } : {}),
+      ["summary", {}, node.attrs.summary],
+      ["div", { "data-details-body": "" }, 0],
+    ];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(DetailsBlockView);
+  },
 });
+
+// ─── DetailsBlock React View ────────────────────────────────────
+
+function DetailsBlockView({ node, getPos, editor }) {
+  const { summary, open, done } = node.attrs;
+
+  const toggleOpen = () => {
+    const pos = getPos();
+    const currentNode = editor.state.doc.nodeAt(pos);
+    if (currentNode) {
+      editor.view.dispatch(
+        editor.state.tr.setNodeMarkup(pos, null, {
+          ...currentNode.attrs,
+          open: !open,
+        })
+      );
+    }
+  };
+
+  const toggleDone = (e) => {
+    e.stopPropagation();
+    const pos = getPos();
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(pos, null, {
+        ...node.attrs,
+        done: !done,
+      })
+    );
+  };
+
+  return (
+    <NodeViewWrapper>
+      <div
+        style={{
+          borderRadius: 8,
+          border: open ? "1px solid #d1d5db" : "1px solid transparent",
+          marginBottom: 2,
+          background: open ? "#f9fafb" : "transparent",
+          transition: "all 0.15s ease",
+        }}
+      >
+        {/* Header row: checkbox + disclosure + summary */}
+        <div
+          onClick={toggleOpen}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "7px 10px",
+            cursor: "pointer",
+            opacity: done ? 0.5 : 1,
+            userSelect: "none",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={done}
+            onChange={toggleDone}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 16, height: 16, flexShrink: 0 }}
+          />
+          <span
+            style={{
+              fontSize: 10,
+              color: "#9ca3af",
+              transition: "transform 0.15s ease",
+              transform: open ? "rotate(90deg)" : "rotate(0deg)",
+              flexShrink: 0,
+            }}
+          >
+            ▶
+          </span>
+          <span
+            style={{
+              flex: 1,
+              textDecoration: done ? "line-through" : "none",
+              color: "#1a1a1a",
+              fontWeight: 500,
+              fontSize: 14,
+            }}
+          >
+            {summary}
+          </span>
+        </div>
+
+        {/* Collapsible body content */}
+        <div
+          style={{
+            display: open ? "block" : "none",
+            padding: "6px 10px 12px 37px",
+            borderTop: open ? "1px solid #f0f0f0" : "none",
+          }}
+        >
+          <NodeViewContent className="details-body-content" />
+        </div>
+      </div>
+    </NodeViewWrapper>
+  );
+}
 
 // ─── Expand/Collapse helpers ────────────────────────────────────
 
@@ -264,8 +354,6 @@ export default function RecallEditorV3() {
       TaskList,
       TaskItem.configure({ nested: true }),
       DetailsBlock,
-      DetailsSummary,
-      DetailsContent,
       Markdown.configure({
         html: true,
         transformPastedText: true,
@@ -326,18 +414,8 @@ export default function RecallEditorV3() {
               e.currentTarget.style.borderColor = "#e5e7eb";
             }}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="7 13 12 18 17 13" />
-              <polyline points="7 6 12 11 17 6" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="7 13 12 18 17 13" /><polyline points="7 6 12 11 17 6" />
             </svg>
             Expand All
           </button>
@@ -368,30 +446,13 @@ export default function RecallEditorV3() {
               e.currentTarget.style.borderColor = "#e5e7eb";
             }}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="17 11 12 6 7 11" />
-              <polyline points="17 18 12 13 7 18" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 11 12 6 7 11" /><polyline points="17 18 12 13 7 18" />
             </svg>
             Collapse All
           </button>
 
-          <div
-            style={{
-              width: 1,
-              height: 20,
-              background: "#e5e7eb",
-              margin: "0 4px",
-            }}
-          />
+          <div style={{ width: 1, height: 20, background: "#e5e7eb", margin: "0 4px" }} />
 
           {/* Markdown source toggle */}
           <button
@@ -410,9 +471,7 @@ export default function RecallEditorV3() {
               fontWeight: 500,
               borderRadius: 6,
               cursor: "pointer",
-              border: markdownOpen
-                ? "1.5px solid #7c3aed"
-                : "1px solid #e5e7eb",
+              border: markdownOpen ? "1.5px solid #7c3aed" : "1px solid #e5e7eb",
               background: markdownOpen ? "#f5f3ff" : "white",
               color: markdownOpen ? "#7c3aed" : "#374151",
               transition: "all 0.15s ease",
@@ -430,16 +489,7 @@ export default function RecallEditorV3() {
               }
             }}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
               <polyline points="13 2 13 9 20 9" />
             </svg>
