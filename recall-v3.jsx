@@ -255,6 +255,103 @@ function DetailsBlockView({ node, getPos, editor }) {
   );
 }
 
+// ─── Insert New Task ────────────────────────────────────────────
+
+function insertNewTask(editor, title = "New task") {
+  const { state } = editor;
+  // Insert after the current top-level node
+  const pos = state.selection.$from.after(1);
+  const taskNode = state.schema.nodes.detailsBlock.create(
+    { summary: title, open: true, done: false },
+    [state.schema.nodes.paragraph.create()]
+  );
+  const tr = state.tr.insert(pos, taskNode);
+  editor.view.dispatch(tr);
+  // Focus into the new task's body content
+  setTimeout(() => editor.commands.focus(), 10);
+}
+
+// ─── Slash Commands ─────────────────────────────────────────────
+
+const SlashCommandsV3 = Extension.create({
+  name: "slashCommandsV3",
+  addProseMirrorPlugins() {
+    const editorRef = this.editor;
+    return [
+      new Plugin({
+        key: new PluginKey("slashCommandsV3"),
+        props: {
+          handleTextInput(view, from, to, text) {
+            const { state } = view;
+            const $from = state.doc.resolve(from);
+            const lineBefore = state.doc.textBetween($from.start(), from, "");
+            const fullLine = lineBefore + text;
+
+            if (fullLine === "/task") {
+              setTimeout(() => {
+                // Delete the "/task" text
+                const { state: s } = editorRef;
+                const $cur = s.doc.resolve(s.selection.from);
+                editorRef.view.dispatch(
+                  s.tr.delete($cur.start($cur.depth), $cur.end($cur.depth))
+                );
+                // Then insert the new task
+                setTimeout(() => insertNewTask(editorRef), 0);
+              }, 0);
+              return false;
+            }
+            return false;
+          },
+        },
+      }),
+    ];
+  },
+});
+
+// ─── Add Task Button ────────────────────────────────────────────
+
+function AddTaskButton({ editor }) {
+  if (!editor) return null;
+  return (
+    <div style={{ maxWidth: 640, marginTop: 8 }}>
+      <button
+        onClick={() => insertNewTask(editor)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 12px",
+          background: "none",
+          border: "1px dashed #d1d5db",
+          borderRadius: 6,
+          color: "#9ca3af",
+          fontSize: 13,
+          cursor: "pointer",
+          width: "100%",
+          justifyContent: "center",
+          transition: "all 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "#7c3aed";
+          e.currentTarget.style.color = "#7c3aed";
+          e.currentTarget.style.background = "#faf5ff";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "#d1d5db";
+          e.currentTarget.style.color = "#9ca3af";
+          e.currentTarget.style.background = "none";
+        }}
+      >
+        <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
+        <span>Add task</span>
+        <span style={{ fontSize: 11, color: "#c4b5fd", marginLeft: 4 }}>
+          or type /task
+        </span>
+      </button>
+    </div>
+  );
+}
+
 // ─── Expand/Collapse helpers ────────────────────────────────────
 
 function expandAll(editor) {
@@ -354,6 +451,7 @@ export default function RecallEditorV3() {
       TaskList,
       TaskItem.configure({ nested: true }),
       DetailsBlock,
+      SlashCommandsV3,
       Markdown.configure({
         html: true,
         transformPastedText: true,
@@ -498,6 +596,7 @@ export default function RecallEditorV3() {
         </div>
 
         <EditorContent editor={editor} style={{ maxWidth: 640 }} />
+        <AddTaskButton editor={editor} />
       </div>
 
       <MarkdownPanel
