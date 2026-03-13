@@ -1,4 +1,4 @@
 node_modules
 .vite
-build
+out
 dist
