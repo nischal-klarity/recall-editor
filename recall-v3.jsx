@@ -301,7 +301,7 @@ function simulateAI(editor) {
 
     if (insertPos !== null) {
       const mark = editor.state.schema.marks.aiMuted.create();
-      const textNode = editor.state.schema.text(AI_PARAGRAPH, [mark]);
+      const textNode = editor.state.schema.text("✦ " + AI_PARAGRAPH, [mark]);
       const aiParagraph = editor.state.schema.nodes.paragraph.create(null, [textNode]);
       editor.view.dispatch(editor.state.tr.insert(insertPos, aiParagraph));
     }
@@ -315,7 +315,7 @@ function simulateAI(editor) {
     });
     if (taskListEnd !== null) {
       const mark = editor.state.schema.marks.aiMuted.create();
-      const textNode = editor.state.schema.text(AI_SUBTASK, [mark]);
+      const textNode = editor.state.schema.text("✦ " + AI_SUBTASK, [mark]);
       const newItem = editor.state.schema.nodes.taskItem.create(
         { checked: false },
         [editor.state.schema.nodes.paragraph.create(null, [textNode])]

@@ -14,7 +14,7 @@
 | **Task node** | Custom `RecallTask` (ProseMirror node) | `<details>/<summary>` (standard HTML in GFM) |
 | **Task checkbox** | Custom attr `done` on node | Same, on `<details>` node |
 | **Sub-tasks** | `TaskList`/`TaskItem` inside RecallTask | Same, via GFM `- [ ]` indentation |
-| **AI provenance** | Custom inline marks with accept/reject flow | Muted gray text via `aiMuted` mark |
+| **AI provenance** | Custom inline marks with accept/reject flow | Muted gray text with ✦ prefix (`aiMuted` mark) |
 | **Serialization** | None (JSON doc is truth) | `tiptap-markdown` round-trip |
 | **Portability** | Locked to TipTap | Renders in GitHub, Notion, any GFM tool |
 
@@ -32,30 +32,28 @@
 - **Markdown source panel** — live view of the serialized markdown as you edit
 - **`/task` slash command** and **`+ Add task` button** — same UX as V2, creates new `<details>` blocks
 
-## Provenance: Muted Color
+## Provenance: Hybrid (Muted Color + ✦ Prefix)
 
-AI-authored content is rendered in **muted gray** (`#9ca3af`) via a custom TipTap mark (`aiMuted`). User-authored content remains the default text color (`#374151`).
+AI-authored content is rendered in **muted gray** (`#9ca3af`) and prefixed with **✦**. User-authored content remains the default text color (`#374151`) with no prefix.
 
 ```
 User writes:   Alex mentioned the 15% cap might be too aggressive.
-AI adds:       Based on Q4 data, 12% preserves margin.  ← rendered in gray
+AI adds:       ✦ Based on Q4 data, 12% preserves margin.  ← gray + ✦ prefix
 ```
 
-### Why muted color
+### Why hybrid
 
-We evaluated six options — blockquote, muted color, prefix token (✦), italic, hybrid (muted + prefix), and thin left border. Muted color was chosen because:
+We evaluated six options — blockquote, muted color, prefix token (✦), italic, hybrid (muted + prefix), and thin left border. The hybrid was chosen because it gets the best of both worlds:
 
-- **Highest coherence** — the document reads as one flowing piece. The gray tone whispers "I didn't write this" without shouting or breaking the reading experience.
-- **Any granularity** — works at word, phrase, sentence, paragraph, or sub-task level. No block-level constraints.
-- **Visually subtle** — doesn't compete with the content. You notice the difference when you look for it, but it doesn't distract when you're just reading.
-- **Simple implementation** — a single custom mark, one CSS rule.
-
-### Tradeoff
-
-Muted color **does not survive markdown export**. The `<span class="ai-muted">` wrapper degrades to plain text in raw markdown and external renderers (GitHub, Notion). If provenance needs to survive outside the editor, a prefix token (`✦`) or italic could be layered on top as a secondary signal.
+- **High coherence** — the muted gray keeps the document reading as one flowing piece. The tone whispers "I didn't write this" without shouting.
+- **Scannable** — the ✦ prefix lets you quickly scan for AI contributions without reading every line.
+- **Survives export** — the ✦ is plain text, so it persists in raw markdown and external renderers (GitHub, Notion). The muted color is lost on export, but the prefix carries the signal.
+- **Revocable** — if the user edits AI text and makes it their own, they can delete the ✦. Provenance is explicitly opt-out.
+- **Any granularity** — works at sentence, paragraph, or sub-task level.
 
 ### Technical implementation
 
 - **Mark**: `AiMuted` — renders as `<span class="ai-muted">`
 - **CSS**: `.ai-muted { color: #9ca3af; }`
-- **Simulate AI**: inserts a muted paragraph and a muted subtask into the first task to demonstrate the effect
+- **Prefix**: `✦ ` prepended to AI-authored text (plain text, survives markdown)
+- **Simulate AI**: inserts a muted+prefixed paragraph and subtask into the first task to demonstrate
